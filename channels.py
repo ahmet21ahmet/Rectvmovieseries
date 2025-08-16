@@ -96,7 +96,7 @@ def extract_m3u8_links(channels):
 
 
 
-def save_to_file(content, filename="rectv.m3u"):
+def save_to_file(content, filename="rectv_kanallar.m3u"):
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
     print(f" M3U dosyası kaydedildi: {filename}")
@@ -112,5 +112,3 @@ if __name__ == "__main__":
         save_to_file(m3u_content)
     else:
         print("Geçerli domain alınamadı.")
-
-
