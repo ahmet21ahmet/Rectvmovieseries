@@ -1,8 +1,8 @@
 import requests
 import time
 
-SERIE_URL = "https://m.prectv50.sbs/api/serie/by/filtres/0/created/{page}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452/"
-EPISODE_URL_TEMPLATE = "https://m.prectv50.sbs/api/season/by/serie/{id}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452/"
+SERIE_URL = "https://m.prectv51.sbs/api/serie/by/filtres/0/created/{page}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452/"
+EPISODE_URL_TEMPLATE = "https://m.prectv49.sbs/api/season/by/serie/{id}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452/"
 
 HEADERS = {
     "user-agent": "okhttp/4.12.0"
