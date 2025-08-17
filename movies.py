@@ -2,7 +2,7 @@ import requests
 import os
 from collections import defaultdict
 
-MOVIE_URL = "https://m.prectv52.sbs/api/movie/by/filtres/0/created/{page}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452"
+MOVIE_URL = "https://m.prectv51.sbs/api/movie/by/filtres/0/created/{page}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452"
 
 def get_all_movies():
     all_movies = []
