@@ -3,72 +3,92 @@ import os
 from collections import defaultdict
 
 # Sabit API yolunu ve temel domain formatını tanımlıyoruz.
-# Değişen kısım {domain_num} ile belirtilmiştir.
 BASE_DOMAIN_FORMAT = "https://m.prectv{domain_num}.sbs"
-API_PATH = "/api/movie/by/filtres/0/created/{page}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452"
+API_PATH = "/api/movie/by/filtres/0/created/0/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452"
 
-def find_working_domain(start=45, end=100):
+def find_all_working_domains(start=45, end=100):
     """
-    Belirtilen sayı aralığında çalışan bir domain bulmaya çalışır.
-    Örn: m.prectv45.sbs, m.prectv46.sbs, ...
+    Belirtilen aralıktaki TÜM çalışan domainleri bulur ve bir liste olarak döndürür.
     """
-    print(f"🔍 Çalışan domain aranıyor ({start}-{end} aralığında)...")
+    working_domains = []
+    print(f"🔍 Potansiyel sunucular taranıyor ({start}-{end} aralığında)...")
     for i in range(start, end + 1):
         domain = BASE_DOMAIN_FORMAT.format(domain_num=i)
         try:
-            # Domainin çalışıp çalışmadığını anlamak için ana sayfasına bir istek atıyoruz.
-            # timeout=5, isteğin 5 saniyeden uzun sürmesi durumunda vazgeçmesini sağlar.
+            # Sadece domainin çalışıp çalışmadığını kontrol et
             response = requests.get(domain, timeout=5, headers={"user-agent": "okhttp/4.12.0"})
-            # HTTP 200 OK durum kodu, sayfanın başarılı bir şekilde yüklendiğini gösterir.
             if response.status_code == 200:
-                print(f"✅ Çalışan domain bulundu: {domain}")
-                return domain
-        except requests.exceptions.RequestException as e:
-            # Bağlantı hatası, zaman aşımı gibi durumlarda bir sonraki domaini dene.
-            print(f"   - {domain} çalışmıyor. ({e.__class__.__name__})")
+                print(f"  [+] Aktif sunucu adayı bulundu: {domain}")
+                working_domains.append(domain)
+        except requests.exceptions.RequestException:
+            # Bağlantı hatası olanları sessizce geç
             continue
-    print("❌ Çalışan bir domain bulunamadı.")
+    print(f"✅ Toplam {len(working_domains)} adet aktif sunucu adayı bulundu.")
+    return working_domains
+
+def find_server_with_content(domain_list):
+    """
+    Verilen domain listesini sırayla dener ve içerik (film) barındıran ilk sunucuyu bulur.
+    """
+    print("\n🔍 İçerik barındıran sunucu aranıyor...")
+    if not domain_list:
+        return None
+
+    for domain in domain_list:
+        # API'nin ilk sayfasını kontrol ederek içerik olup olmadığını anlarız.
+        # Sayfa numarasını (created/{page}) URL'den kaldırdık, çünkü API'nin ilk sayfası yeterli.
+        test_url = domain + API_PATH
+        print(f"  [*] {domain} kontrol ediliyor...")
+        try:
+            response = requests.get(test_url, timeout=10, headers={"user-agent": "okhttp/4.12.0"})
+            if response.status_code == 200:
+                data = response.json()
+                # Eğer data bir liste ise ve içinde en az bir eleman varsa, bu sunucuda içerik var demektir.
+                if isinstance(data, list) and data:
+                    print(f"✅ İçerik dolu sunucu bulundu: {domain}")
+                    return domain
+                else:
+                    print(f"  [-] {domain} aktif fakat içerik boş.")
+            else:
+                print(f"  [-] {domain} aktif fakat API hatası veriyor (HTTP {response.status_code}).")
+        except (requests.exceptions.RequestException, ValueError):
+            # Bağlantı veya JSON hatası olursa bu sunucuyu atla
+            print(f"  [-] {domain} ile iletişim kurulamadı veya yanıt bozuk.")
+            continue
+            
+    print("❌ Maalesef içerik barındıran bir sunucu bulunamadı.")
     return None
+
 
 def get_all_movies(working_domain):
     """
-    Çalışan domain üzerinden tüm filmleri sayfa sayfa çeker.
+    Çalışan ve içerik dolu domain üzerinden tüm filmleri sayfa sayfa çeker.
     """
     all_movies = []
     page = 0
+    
+    # API yolunu sayfa numarası için formatlanabilir hale getiriyoruz.
+    paginated_api_path = "/api/movie/by/filtres/0/created/{page}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452"
 
     while True:
-        # Tam API URL'sini çalışan domain ve sayfa numarası ile oluşturuyoruz.
-        url = working_domain + API_PATH.format(page=page)
+        url = working_domain + paginated_api_path.format(page=page)
         print(f"📄 Sayfa {page} çekiliyor...")
         try:
             response = requests.get(url, headers={"user-agent": "okhttp/4.12.0"})
-
             if response.status_code != 200:
-                print(f"   - Hata: Sunucudan HTTP {response.status_code} kodu alındı.")
                 break
-
             data = response.json()
-            # Eğer sunucudan boş bir liste gelirse, filmlerin sonuna gelmişiz demektir.
             if not data:
                 print(f"✅ Tüm filmler alındı. Toplam sayfa: {page}")
                 break
-
             all_movies.extend(data)
             page += 1
-        except requests.exceptions.RequestException as e:
-            print(f"   - Hata: Veri çekilirken bir bağlantı hatası oluştu: {e}")
+        except (requests.exceptions.RequestException, ValueError):
+            print(f"   - Hata: Sayfa {page} çekilirken bir sorun oluştu.")
             break
-        except ValueError: # JSON çözme hatası
-            print(f"   - Hata: Sunucudan gelen yanıt JSON formatında değil.")
-            break
-
     return all_movies
 
 def categorize_movies(movies):
-    """
-    Filmleri türlerine (genres) göre kategorilere ayırır.
-    """
     categorized_movies = defaultdict(list)
     for movie in movies:
         genres = movie.get("genres", [])
@@ -81,15 +101,7 @@ def categorize_movies(movies):
     return categorized_movies
 
 def extract_movie_links(movies, category):
-    """
-    Belirli bir kategorideki filmler için M3U formatında metin oluşturur.
-    """
-    playlist_lines = [
-        f'#EXTM3U',
-        f'#Kategori: {category}',
-        f'#Bu kategoride {category.lower()} türündeki filmler yer almaktadır.\n'
-    ]
-
+    playlist_lines = []
     for movie in movies:
         title = movie.get("title", "Bilinmeyen Film")
         logo = movie.get("image", "")
@@ -97,11 +109,9 @@ def extract_movie_links(movies, category):
         sources = movie.get("sources", [])
         year = movie.get("year", "Tarih Yok")
         group = category
-
         for source in sources:
             url = source.get("url")
             if url and url.endswith(".m3u8"):
-                # URL'yi proxy formatına dönüştürüyoruz
                 url = f"https://1.nejyoner19.workers.dev/?url={url}"
                 quality = source.get("quality", "")
                 quality_str = f" [{quality}]" if quality else ""
@@ -114,36 +124,40 @@ def extract_movie_links(movies, category):
                 playlist_lines.extend(entry)
     return '\n'.join(playlist_lines)
 
-def save_to_file(content, filename="rectv_filmler.m3u"):
-    """
-    Oluşturulan içeriği belirtilen dosyaya kaydeder.
-    """
+def save_to_file(categorized_content, filename="rectv_filmler.m3u"):
+    # Dosyanın en başına #EXTM3U etiketini ekliyoruz.
+    final_content = "#EXTM3U\n\n"
+    
+    for category, content in categorized_content.items():
+        final_content += f"#Kategori: {category}\n"
+        final_content += content + "\n\n"
+
     with open(filename, "w", encoding="utf-8") as f:
-        f.write(content)
+        f.write(final_content.strip())
     print(f"📁 M3U dosyası başarıyla kaydedildi: {filename}")
 
 if __name__ == "__main__":
-    # 1. Adım: Çalışan domaini bul (artık 45-100 aralığında arayacak)
-    domain = find_working_domain()
+    # 1. Adım: Tüm potansiyel aktif sunucuları bul
+    active_domains = find_all_working_domains()
 
-    # Eğer domain bulunamazsa betiği sonlandır
-    if not domain:
-        print("🔴 İşlem durduruldu.")
+    # 2. Adım: Aktif sunucular arasından içerik barındıranı bul
+    content_server = find_server_with_content(active_domains)
+
+    if not content_server:
+        print("🔴 İşlem durduruldu. İçerik dolu bir sunucu bulunamadı.")
     else:
-        # 2. Adım: Tüm filmleri çek
-        movies = get_all_movies(domain)
-        print(f"🎬 Toplam {len(movies)} film bulundu.")
+        # 3. Adım: İçerik dolu sunucudan tüm filmleri çek
+        movies = get_all_movies(content_server)
+        print(f"\n🎬 Toplam {len(movies)} film bulundu.")
 
         if movies:
-            # 3. Adım: Filmleri kategorize et
+            # 4. Adım: Filmleri kategorize et
             categorized_movies = categorize_movies(movies)
             
-            # 4. Adım: Tüm kategorileri tek bir dosyaya yazmak için birleştir
-            all_content_lines = []
+            # 5. Adım: Her kategori için M3U içeriğini oluştur
+            m3u_by_category = {}
             for category, movies_in_category in categorized_movies.items():
-                m3u_content = extract_movie_links(movies_in_category, category)
-                all_content_lines.append(m3u_content)
+                m3u_by_category[category] = extract_movie_links(movies_in_category, category)
             
-            # 5. Adım: Dosyaya kaydet
-            final_content = "\n\n".join(all_content_lines)
-            save_to_file(final_content)
+            # 6. Adım: Oluşturulan içerikleri dosyaya kaydet
+            save_to_file(m3u_by_category)
