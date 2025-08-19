@@ -1,4 +1,4 @@
-name: Generate and Update M3U Playlist
+name: Rec TV M3U Playlist
 
 on:
   workflow_dispatch:
