@@ -15,7 +15,7 @@ USER_AGENT = "okhttp/4.12.0"
 TIMEOUT = 15
 
 # --- SABİTLER ---
-BASE_DOMAIN_FORMAT = "https://m.prectv{domain_num}.lol"
+BASE_DOMAIN_FORMAT = "https://m.prectv{domain_num}.sbs"
 API_PATH_FORMAT = "/api/movie/by/filtres/0/created/{page}/4F5A9C3D9A86FA54EACEDDD635185/c3c5bd17-e37b-4b94-a944-8a3688a30452"
 
 def find_best_server():
